@@ -10,8 +10,8 @@ const Header = () => {
             <Link href="/" className="flex items-center">
               <Image
                 src="/images/Logo.png"
-                alt="Dr. Know Logo"
-                width={120}
+                alt="Logo"
+                width={151}
                 height={40}
                 className="object-contain"
               />
@@ -22,7 +22,9 @@ const Header = () => {
             
             {/* Campo do nome do curso */}
             <div className="relative">
-                <h3>Gestão Comercial: negócios digitais</h3>
+                <h3 className="text-white text-xs font-bold uppercase">
+                    Gestão Comercial: negócios digitais
+                </h3>
             </div>
           </div>
           
