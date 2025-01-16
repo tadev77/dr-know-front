@@ -5,7 +5,7 @@ interface CardProps {
 
 const Card = ({ title, children }: CardProps) => {
   return (
-    <div className="w-full max-w-[400px] p-6 rounded-[16px] border border-[#20344E]">
+    <div className="w-full p-6 rounded-[16px] border border-[#20344E]">
       <h3 className="text-white text-lg font-medium mb-6">{title}</h3>
       {children}
     </div>

@@ -44,3 +44,7 @@ a {
     color-scheme: dark;
   }
 }
+
+.insights-gradient {
+  background: radial-gradient(160.53% 149.21% at 50.13% -22.38%, #4D5D71 5.53%, #1D2938 40.54%, #121D2B 69.02%);
+}
