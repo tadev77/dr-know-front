@@ -410,7 +410,7 @@ export default function Dashboard() {
         setIsLoading(true);
         setError(null);
         
-        const response = await fetch('/completions', {
+        const response = await fetch('/api/completions', {
           signal: AbortSignal.timeout(60000),
           headers: {
             'Content-Type': 'application/json',
@@ -505,7 +505,7 @@ export default function Dashboard() {
       setIsLoadingInsights(true);
       setError(null);
       
-      const response = await fetch('/completions', {
+      const response = await fetch('/api/completions', {
         signal: AbortSignal.timeout(60000),
         headers: {
           'Content-Type': 'application/json',
@@ -545,8 +545,8 @@ export default function Dashboard() {
 </svg>
             <a href="${pd.link}" target="_blank" rel="noopener noreferrer" class="text-white hover:text-blue-300 transition-colors">
               ${pd.title}
-              <svg class="inline-block ml-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M7 17L17 7M17 7H8M17 7V16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg class="inline-block ml-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" >
+                <path d="M7 17L17 7M17 7H8M17 7V16" />
               </svg>
             </a>
           </div>`;
