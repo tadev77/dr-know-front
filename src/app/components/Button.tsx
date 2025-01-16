@@ -2,20 +2,17 @@ import { ButtonHTMLAttributes } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger';
   size?: 'sm' | 'md' | 'lg';
-  className?: string;
   fullWidth?: boolean;
-  onClick?: () => void;
 }
 
 const Button = ({ 
   label, 
   variant = 'primary', 
   size = 'md', 
-  className = '',
   fullWidth = false,
-  onClick,
+  className = '',
   ...props 
 }: ButtonProps) => {
   const baseStyles = 'inline-flex items-center justify-center rounded-full font-medium transition-colors duration-200';
@@ -44,7 +41,6 @@ const Button = ({
         ${widthClass}
         ${className}
       `}
-      onClick={onClick}
       {...props}
     >
       {variant === 'primary' && (
