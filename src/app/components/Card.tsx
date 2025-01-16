@@ -1,18 +1,13 @@
 interface CardProps {
-  title?: string;
+  title: string;
   children: React.ReactNode;
-  className?: string;
 }
 
-const Card = ({ title, children, className = '' }: CardProps) => {
+const Card = ({ title, children }: CardProps) => {
   return (
-    <div className={`bg-[#111C2A] rounded-[24px] shadow-lg p-6 w-full max-w-[400px] transition-all ${className}`}>
-      {title && (
-        <h2 className="text-white text-lg font-medium mb-4">{title}</h2>
-      )}
-      <div className="w-full">
-        {children}
-      </div>
+    <div className="w-full p-6 rounded-[16px] border border-[#20344E]">
+      <h3 className="text-white text-lg font-medium mb-6">{title}</h3>
+      {children}
     </div>
   );
 };

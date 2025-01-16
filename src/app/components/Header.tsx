@@ -3,26 +3,37 @@ import Image from 'next/image';
 
 const Header = () => {
   return (
-    <header className="w-full bg-[#111C2A] shadow-md">
+    <header className="flex h-[80px] px-20 items-center gap-8">
       <div className="container mx-auto px-4 py-3">
         <nav className="flex items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <Image
                 src="/images/Logo.png"
-                alt="Dr. Know Logo"
-                width={120}
+                alt="Logo"
+                width={151}
                 height={40}
                 className="object-contain"
               />
             </Link>
             
-            {/* Separador vertical */}
             <div className="h-8 w-px bg-gray-400 mx-4"></div>
-            
-            {/* Campo do nome do curso */}
+
             <div className="relative">
-                <h3>Gestão Comercial: negócios digitais</h3>
+              <select 
+                className="bg-transparent text-white text-xs font-bold uppercase border-none focus:ring-0 cursor-pointer"
+                defaultValue="gestao-comercial"
+              >
+                <option value="gestao-comercial" className="bg-gray-800">
+                  Gestão Comercial: negócios digitais
+                </option>
+                <option value="marketing-digital" className="bg-gray-800">
+                  Marketing Digital
+                </option>
+                <option value="desenvolvimento-web" className="bg-gray-800">
+                  Desenvolvimento Web
+                </option>
+              </select>
             </div>
           </div>
           
@@ -32,8 +43,9 @@ const Header = () => {
               <button className="text-white hover:text-blue-200 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M13.8953 6.06773L13.8953 6.06776C14.6333 7.90859 16.0915 9.36679 17.9324 10.1048L17.9324 10.1048L22.5112 11.9404L17.9324 13.7759L17.9324 13.7759C16.0915 14.5139 14.6333 15.9721 13.8953 17.813L13.8953 17.813L12.0597 22.3919L10.2242 17.813L10.2242 17.813C9.48617 15.9721 8.02798 14.5139 6.18714 13.7759L6.18711 13.7759L1.60825 11.9404L6.18711 10.1048L6.18714 10.1048C8.02798 9.36679 9.48617 7.90859 10.2242 6.06776L10.2242 6.06773L12.0597 1.48886L13.8953 6.06773Z" fill="white" stroke="white"/>
-                <path d="M3.84898 21.507C3.56385 20.9723 3.12578 20.5343 2.59115 20.2491C3.12578 19.964 3.56385 19.5259 3.84898 18.9913C4.13412 19.5259 4.57218 19.964 5.10681 20.2491C4.57218 20.5343 4.13412 20.9723 3.84898 21.507Z" stroke="white" stroke-width="2.25" stroke-miterlimit="10" />
-                <path d="M18.9661 3.77305C19.5008 3.48792 19.9388 3.04986 20.224 2.51522C20.5091 3.04986 20.9472 3.48792 21.4818 3.77305C20.9472 4.05819 20.5091 4.49625 20.224 5.03089C19.9388 4.49625 19.5008 4.05819 18.9661 3.77305Z" stroke="white" stroke-width="2.25" stroke-miterlimit="10"/>
+                <path d="M3.84898 21.507C3.56385 20.9723 3.12578 20.5343 2.59115 20.2491C3.12578 19.964 3.56385 19.5259 3.84898 18.9913C4.13412 19.5259 4.57218 19.964 5.10681 20.2491C4.57218 20.5343 4.13412 20.9723 3.84898 21.507Z" stroke="white" />
+                <path d="M18.9661 3.77305C19.5008 3.48792 19.9388 3.04986 20.224 2.51522C20.5091 3.04986 20.9472 3.48792 21.4818 3.77305C20.9472 4.05819 20.5091 4.49625 20.224 5.03089C19.9388 4.49625 19.5008 4.05819 18.9661 3.77305Z" stroke="white"
+                />
                 </svg>
               </button>
 
