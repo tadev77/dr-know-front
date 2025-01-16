@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../components/Button';
 import Header from '../components/Header';
 import { Doughnut, Bar } from 'react-chartjs-2';
@@ -7,37 +7,22 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
   Legend,
-  BarElement,
 } from 'chart.js';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
-  ArcElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend
 );
-
-
-type StudyDataset = {
-  data: number[];
-  backgroundColor: (context: { raw: number }) => string;
-  borderRadius: number;
-  borderSkipped: false;
-  barThickness: number;
-  categoryPercentage: number;
-  barPercentage: number;
-}
 
 // Add type definitions
 interface TabOption {
@@ -48,6 +33,40 @@ interface TabOption {
 interface SubjectProgress {
   name: string;
   progress: number;
+}
+
+// Add interfaces for API responses
+interface InsightData {
+  text: string;
+}
+
+interface PerformanceData {
+  [key: string]: {
+    data: {
+      datasets: [{
+        data: number[];
+        backgroundColor: string[];
+        circumference: number;
+        rotation: number;
+        borderRadius: number;
+        borderWidth: number;
+      }]
+    };
+    subjects: SubjectProgress[];
+  }
+}
+
+interface StudyData {
+  labels: string[];
+  datasets: [{
+    data: number[];
+    backgroundColor: (context: { raw: number }) => string;
+    borderRadius: number;
+    borderSkipped: boolean;
+    barThickness: number;
+    categoryPercentage: number;
+    barPercentage: number;
+  }]
 }
 
 const TRIMESTER_TABS: TabOption[] = [
@@ -95,32 +114,166 @@ const SubjectCard = ({ name, progress }: SubjectProgress) => (
   </div>
 );
 
+// Dados de desempenho para cada trimestre
+const trimesterPerformance = {
+  '1': {
+    data: {
+      datasets: [{
+        data: [69, 31],
+        backgroundColor: ['#C1DB25', '#1D2F47'],
+        circumference: 180,
+        rotation: 270,
+        borderRadius: 20,
+        borderWidth: 0
+      }]
+    },
+    subjects: [
+      { name: 'Pensamento Lógico e Quantitativo', progress: 70 },
+      { name: 'Gestão, Operações e Organizações', progress: 98 }
+    ]
+  },
+  '2': {
+    data: {
+      datasets: [{
+        data: [82, 18],
+        backgroundColor: ['#C1DB25', '#1D2F47'],
+        circumference: 180,
+        rotation: 270,
+        borderRadius: 20,
+        borderWidth: 0
+      }]
+    },
+    subjects: [
+      { name: 'Pensamento Lógico e Quantitativo 2', progress: 85 },
+      { name: 'Gestão, Operações e Organizações 2', progress: 92 }
+    ]
+  },
+  '3': {
+    data: {
+      datasets: [{
+        data: [75, 25],
+        backgroundColor: ['#C1DB25', '#1D2F47'],
+        circumference: 180,
+        rotation: 270,
+        borderRadius: 20,
+        borderWidth: 0
+      }]
+    },
+    subjects: [
+      { name: 'Pensamento Lógico e Quantitativo 3', progress: 78 },
+      { name: 'Gestão, Operações e Organizações 3', progress: 89 }
+    ]
+  },
+  '4': {
+    data: {
+      datasets: [{
+        data: [91, 9],
+        backgroundColor: ['#C1DB25', '#1D2F47'],
+        circumference: 180,
+        rotation: 270,
+        borderRadius: 20,
+        borderWidth: 0
+      }]
+    },
+    subjects: [
+      { name: 'Pensamento Lógico e Quantitativo', progress: 95 },
+      { name: 'Gestão, Operações e Organizações', progress: 88 }
+    ]
+  }
+};
+
+const studyData = {
+  labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+  datasets: [
+    {
+      data: [25, 60, 60, 90, 50, 90, 120],
+      backgroundColor: (context: { raw: number }) => {
+        return context.raw >= 120 ? '#C1DB25' : '#4D5D71';
+      },
+      borderRadius: 6,
+      borderSkipped: false,
+      barThickness: 35,
+      categoryPercentage: 0.8,
+      barPercentage: 0.9,
+    }
+  ]
+};
+
+const TypewriterText = ({ text }: { text: string }) => {
+  const [displayText, setDisplayText] = useState('');
+  
+  useEffect(() => {
+    let currentIndex = 0;
+    const interval = setInterval(() => {
+      if (currentIndex <= text.length) {
+        setDisplayText(text.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 50); // Adjust speed here (lower = faster)
+
+    return () => clearInterval(interval);
+  }, [text]);
+
+  return <p className="mb-4">{displayText}</p>;
+};
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState(TRIMESTER_TABS[0].id);
+  const [insightText, setInsightText] = useState<string>('');
+  const [performanceData, setPerformanceData] = useState<PerformanceData>(trimesterPerformance);
+  const [studyHoursData, setStudyHoursData] = useState<StudyData>(studyData);
+  const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Helper function to safely fetch and parse JSON
+        const fetchJSON = async (url: string) => {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const text = await response.text();
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error(`Invalid JSON from ${url}:`, text);
+            throw new Error('Invalid JSON response');
+          }
+        };
 
-  const studyData: {
-    labels: string[];
-    datasets: StudyDataset[];
-  } = {
-    labels: ['Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.', 'Dom.'],
-    datasets: [{
-      data: [25, 120, 90, 30, 90, 120, 120],
-      backgroundColor: (context: { raw: number }) => context.raw >= 120 ? '#C1DB25' : '#4D5D71',
-      borderRadius: 4,
-      borderSkipped: false,
-      barThickness: 32,
-      categoryPercentage: 1,
-      barPercentage: 0.9,
-    }]
-  };
+        // Fetch all data with proper error handling
+        const [insightData, performanceData, studyData] = await Promise.all([
+          fetchJSON<InsightData>('/api/insights').catch(() => ({ text: 'Não foi possível carregar os insights.' })),
+          fetchJSON<PerformanceData>('/api/performance').catch(() => trimesterPerformance), // Fallback to default data
+          fetchJSON<StudyData>('/api/study-hours').catch(() => studyData) // Fallback to default data
+        ]);
+
+        setInsightText(isLoading.text);
+        setPerformanceData(performanceData);
+        setStudyHoursData(studyData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        // Set default values in case of error
+        setInsightText('Não foi possível carregar os dados. Por favor, tente novamente mais tarde.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
-    <main className="dashboard-container min-h-screen bg-[#0D1621] p-8">
+    <main className="dashboard-container min-h-screen bg-[#0D1621] p-4 md:p-8">
       <Header />
 
       <div className="dashboard-content container mx-auto">
-      <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6">
+        <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <mask id="mask0_68_359" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
               <rect width="24" height="24" fill="#D9D9D9"/>
@@ -131,12 +284,13 @@ export default function Dashboard() {
           </svg>
             Voltar
           </button>
-        <div className="dashboard-header flex justify-between items-center mb-8">
+        
+        <div className="dashboard-header flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-white text-base font-medium mb-2">
               Bem-vindo(a) ao seu dashboard inteligente do curso
             </h1>
-            <h2 className="text-white text-2xl font-bold">
+            <h2 className="text-white text-xl md:text-2xl font-bold">
               Gestão Comercial: Negócios Digitais
             </h2>
           </div>
@@ -147,10 +301,10 @@ export default function Dashboard() {
           />
         </div>
 
-        <div className="dashboard-grid grid grid-cols-3 gap-6 w-full">
-          <div className="performance-study-card bg-[#172537] p-6 rounded-lg col-span-2 flex w-full">
+        <div className="dashboard-grid grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+          <div className="performance-study-card bg-[#172537] p-4 md:p-6 rounded-lg col-span-1 md:col-span-2 flex flex-col md:flex-row w-full">
             {/* Performance Section */}
-            <div className="performance-section flex-1 pr-6 border-r border-[#1D2F47]">
+            <div className="performance-section flex-1 md:pr-6 md:border-r border-[#1D2F47] mb-6 md:mb-0">
               <div className="performance-title flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 rounded-full bg-[#20344E] flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
@@ -165,40 +319,50 @@ export default function Dashboard() {
                 <h3 className="text-white">Desempenho nas avaliações</h3>
               </div>
               
-              <div className="trimester-tabs flex gap-4 mb-4">
+              <div className="trimester-tabs relative flex justify-between mb-4 border-b border-gray-400">
                 {TRIMESTER_TABS.map((tab, i) => (
                   <button
                     key={i}
-                    className={`text-sm ${activeTab === tab.id ? 'text-[#0095D6] border-b-2 border-[#0095D6]' : 'text-gray-400 border-b-2 border-gray-400'}`}
+                    className={`text-xs md:text-sm pb-2 relative ${
+                      activeTab === tab.id 
+                        ? 'text-[#0095D6]' 
+                        : 'text-gray-400'
+                    }`}
                     onClick={() => setActiveTab(tab.id)}
                   >
                     {tab.label}
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#0095D6]" />
+                    )}
                   </button>
                 ))}
               </div>
 
               <div className="performance-chart flex justify-center -mt-6">
-                <div className="w-80 h-80">
+                <div className="w-60 h-60 md:w-80 md:h-80">
                   <Doughnut
-                    data={doughnutChartConfig.data}
+                    data={performanceData[activeTab].data}
                     options={doughnutChartConfig.options}
                   />
                 </div>
               </div>
               <div className="performance-stats text-center -mt-36 ">
-                <span className="text-6xl text-white font-bold">69<span className="text-xl">%</span></span>
+                <span className="text-6xl text-white font-bold">
+                  {performanceData[activeTab].data.datasets[0].data[0]}
+                  <span className="text-xl">%</span>
+                </span>
                 <p className="text-gray-400">De aproveitamento</p>
               </div>
 
               <div className="performance-subjects mt-6 space-y-4">
-                {SUBJECTS.map(subject => (
+                {performanceData[activeTab].subjects.map(subject => (
                   <SubjectCard key={subject.name} {...subject} />
                 ))}
               </div>
             </div>
 
             {/* Study Hours Section */}
-            <div className="study-hours-section flex-1 pl-6">
+            <div className="study-hours-section flex-1 md:pl-6 pt-6 md:pt-0 border-t md:border-t-0 border-[#1D2F47]">
               <div className="study-hours-title flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 rounded-full bg-[#20344E] flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -213,9 +377,9 @@ export default function Dashboard() {
                 <h3 className="text-white">Horas de videoaulas assistidas</h3>
               </div>
               
-              <div className="study-hours-chart w-full h-[250px]">
+              <div className="study-hours-chart w-full h-[200px] md:h-[250px]">
                 <Bar 
-                  data={studyData}
+                  data={studyHoursData}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
@@ -242,14 +406,16 @@ export default function Dashboard() {
                         },
                         ticks: { 
                           color: '#fff',
-                          padding: 10,
+                          padding: 5,
                           font: {
-                            size: 12
+                            size: 10,
+                            md: 12
                           }
                         },
                         border: {
                           display: false
-                        }
+                        },
+                        position: 'top'
                       }
                     },
                     plugins: {
@@ -306,13 +472,7 @@ export default function Dashboard() {
           </div>
 
           {/* Insights Card */}
-          <div className="insights-card p-6 rounded-2xl w-full border border-[#20344E] insights-gradient" 
-               style={{
-                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='173' height='173' viewBox='0 0 173 173' fill='none'%3E%3Cg opacity='0.05'%3E%3Cpath d='M41.3319 65.4465L41.749 66.4913C53.2213 61.9107 62.3098 52.8602 66.9102 41.4321L65.8666 41.0119L66.9102 41.432L81.5511 5.05913C81.5511 5.05908 81.5511 5.05902 81.5511 5.05896C83.3682 0.547184 89.7871 0.54724 91.6041 5.05913L106.245 41.432C110.845 52.8602 119.934 61.9107 131.406 66.4913L131.807 65.4882L131.406 66.4913L167.928 81.0723C172.459 82.8818 172.459 89.2637 167.928 91.0733C167.928 91.0733 167.928 91.0734 167.928 91.0734L131.406 105.654C119.934 110.235 110.845 119.285 106.245 130.714L91.6041 167.087C89.7871 171.598 83.3682 171.599 81.5511 167.087C81.5511 167.087 81.5511 167.087 81.5511 167.087L66.9102 130.714L65.8666 131.134L66.9102 130.714C62.3098 119.285 53.2213 110.235 41.749 105.654L5.22688 91.0734C5.22683 91.0734 5.22677 91.0733 5.22671 91.0733C0.696509 89.2637 0.696564 82.8818 5.22688 81.0723L41.749 66.4913L41.3319 65.4465Z' fill='white' stroke='white' /%3E%3Cpath d='M29.4304 120.006L34.0321 131.431C35.4424 134.927 38.2266 137.7 41.7378 139.105L53.2092 143.688C54.9321 144.375 54.9321 146.801 53.2092 147.481L41.7378 152.064C38.2266 153.469 35.4424 156.242 34.0321 159.738L29.4304 171.163C28.7398 172.879 26.3045 172.879 25.6212 171.163L21.0196 159.738C19.6093 156.242 16.825 153.469 13.3138 152.064L1.84246 147.481C0.119571 146.794 0.119571 144.368 1.84246 143.688L13.3138 139.105C16.825 137.7 19.6093 134.927 21.0196 131.431L25.6212 120.006C26.3118 118.29 28.7471 118.29 29.4304 120.006Z' fill='white'/%3E%3Cpath d='M147.199 1.99639L151.8 13.4209C153.21 16.9177 155.995 19.6906 159.506 21.0951L170.977 25.678C172.7 26.3658 172.7 28.7911 170.977 29.4717L159.506 34.0545C155.995 35.459 153.21 38.2319 151.8 41.7287L147.199 53.1532C146.508 54.8691 144.073 54.8691 143.389 53.1532L138.788 41.7287C137.377 38.2319 134.593 35.459 131.082 34.0545L119.611 29.4717C117.888 28.7839 117.888 26.3585 119.611 25.678L131.082 21.0951C134.593 19.6906 137.377 16.9177 138.788 13.4209L143.389 1.99639C144.08 0.280541 146.515 0.280541 147.199 1.99639Z' fill='white'/%3E%3C/g%3E%3C/svg%3E")`,
-                 backgroundRepeat: 'no-repeat',
-                 backgroundPosition: 'center',
-                 backgroundSize: '173px'
-               }}>
+          <div className="insights-card p-4 md:p-6 rounded-2xl w-full border border-[#20344E] insights-gradient">
             <div className="insights-header flex items-center gap-2 mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
                 <rect width="40" height="40" rx="20" fill="#20344E"/>
@@ -324,10 +484,12 @@ export default function Dashboard() {
             </div>
 
             <div className="insights-content text-white">
-              <div className='insights-text h-[400px]'>
-                <p className="mb-4">
-                Olá, Cecília. Identifiquei alguns pontos de melhorias no seu cronograma de estudos baseados no seu desempenho até aqui
-                </p>
+              <div className='insights-text h-[300px] md:h-[400px]'>
+                {isLoading ? (
+                  <p>Carregando insights...</p>
+                ) : (
+                  <TypewriterText text={insightText} />
+                )}
               </div>
             </div>
             <Button 

@@ -72,7 +72,7 @@ export default function Home() {
     
     return (
       <label 
-        className={`study-days-option flex items-center p-4 rounded-[8px] cursor-pointer 
+        className={`study-days-option flex items-center p-3 sm:p-4 rounded-[8px] cursor-pointer 
           hover:bg-[#1E2A3B] transition-colors group border border-[#4D5D71] 
           ${isSelected ? 'bg-[#4D5D71]' : ''}`}
       >
@@ -85,7 +85,7 @@ export default function Home() {
           value={value}
         />
         <div className="option-content w-full flex items-center peer-checked:text-white text-gray-300">
-          <span className="option-text ml-3">{label}</span>
+          <span className="option-text ml-3 text-sm sm:text-base">{label}</span>
         </div>
         <div className="indicator-wrapper ml-auto">
           <StudyOptionIndicator isSelected={isSelected} />
@@ -135,12 +135,12 @@ export default function Home() {
           </Card>
         </div>
 
-        <div className='button-container flex justify-end mt-4'>
+        <div className='button-container flex justify-center sm:justify-end mt-4 px-4 sm:px-6'>
           <Button 
             label="CRIAR PLANEJAMENTO" 
             variant="primary"
             size="md"
-            className={`create-plan-button uppercase ${!hasSelectedOption() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`create-plan-button uppercase w-full sm:w-auto ${!hasSelectedOption() ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={handleNavigation}
             disabled={!hasSelectedOption()}
           />

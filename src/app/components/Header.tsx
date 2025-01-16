@@ -17,14 +17,23 @@ const Header = () => {
               />
             </Link>
             
-            {/* Separador vertical */}
             <div className="h-8 w-px bg-gray-400 mx-4"></div>
-            
-            {/* Campo do nome do curso */}
+
             <div className="relative">
-                <h3 className="text-white text-xs font-bold uppercase">
-                    Gestão Comercial: negócios digitais
-                </h3>
+              <select 
+                className="bg-transparent text-white text-xs font-bold uppercase border-none focus:ring-0 cursor-pointer"
+                defaultValue="gestao-comercial"
+              >
+                <option value="gestao-comercial" className="bg-gray-800">
+                  Gestão Comercial: negócios digitais
+                </option>
+                <option value="marketing-digital" className="bg-gray-800">
+                  Marketing Digital
+                </option>
+                <option value="desenvolvimento-web" className="bg-gray-800">
+                  Desenvolvimento Web
+                </option>
+              </select>
             </div>
           </div>
           
