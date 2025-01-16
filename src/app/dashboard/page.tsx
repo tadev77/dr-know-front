@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Button from '../components/Button';
 import Header from '../components/Header';
 import { Doughnut, Bar } from 'react-chartjs-2';
@@ -13,6 +13,8 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { useRouter } from 'next/navigation';
 
 ChartJS.register(
   CategoryScale,
@@ -21,13 +23,16 @@ ChartJS.register(
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ChartDataLabels
 );
 
 // Add type definitions
 interface TabOption {
   id: string;
   label: string;
+  isLocked: boolean;
+  completion?: number; // percentage of completion
 }
 
 interface SubjectProgress {
@@ -35,9 +40,24 @@ interface SubjectProgress {
   progress: number;
 }
 
-// Add interfaces for API responses
 interface InsightData {
-  text: string;
+  general_insight: string;
+  performance_insight: string;
+  time_insight: string;
+  suggested_daily_time: number;
+  study_time?: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+  pd_suggested: {
+    title: string;
+    link: string;
+  }[];
 }
 
 interface PerformanceData {
@@ -66,14 +86,40 @@ interface StudyData {
     barThickness: number;
     categoryPercentage: number;
     barPercentage: number;
+    stack: string;
+    datalabels: {
+      display?: boolean;
+      color?: (context: { raw: number }) => string;
+      anchor?: string;
+      align?: string;
+      formatter?: (value: number) => string;
+    };
+  }, {
+    data: number[];
+    backgroundColor: string;
+    borderRadius: number;
+    borderSkipped: boolean;
+    barThickness: number;
+    categoryPercentage: number;
+    barPercentage: number;
+    stack: string;
+    datalabels: {
+      display: boolean;
+    };
   }]
 }
 
+// Add interface for completions data
+interface CompletionData {
+  trimester: string;
+  completion: number;
+}
+
 const TRIMESTER_TABS: TabOption[] = [
-  { id: '1', label: '1º Trimestre' },
-  { id: '2', label: '2º Trimestre' },
-  { id: '3', label: '3º Trimestre' },
-  { id: '4', label: '4º Trimestre' }
+  { id: '1', label: '1º Trimestre', isLocked: false, completion: 100 },
+  { id: '2', label: '2º Trimestre', isLocked: false, completion: 45 },
+  { id: '3', label: '3º Trimestre', isLocked: true, completion: 0 },
+  { id: '4', label: '4º Trimestre', isLocked: true, completion: 0 }
 ];
 
 const SUBJECTS: SubjectProgress[] = [
@@ -95,7 +141,12 @@ const doughnutChartConfig = {
   options: {
     cutout: '80%',
     plugins: {
-      legend: { display: false }
+      legend: { 
+        display: false 
+      },
+      datalabels: {
+        display: false
+      }
     }
   }
 };
@@ -144,8 +195,8 @@ const trimesterPerformance = {
       }]
     },
     subjects: [
-      { name: 'Pensamento Lógico e Quantitativo 2', progress: 85 },
-      { name: 'Gestão, Operações e Organizações 2', progress: 92 }
+      { name: 'Pensamento Lógico e Quantitativo', progress: 85 },
+      { name: 'Gestão, Operações e Organizações', progress: 92 }
     ]
   },
   '3': {
@@ -186,15 +237,44 @@ const studyData = {
   labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
   datasets: [
     {
-      data: [25, 60, 60, 90, 50, 90, 120],
+      data: [30, 60, 60, 90, 50, 90, 120],
       backgroundColor: (context: { raw: number }) => {
-        return context.raw >= 120 ? '#C1DB25' : '#4D5D71';
+        return context.raw >= 120 ? '#C1DB25' : '#98A2AE';
       },
       borderRadius: 6,
       borderSkipped: false,
       barThickness: 35,
       categoryPercentage: 0.8,
       barPercentage: 0.9,
+      stack: 'stack1',
+      datalabels: {
+        color: (context: { raw: number }) => {
+          return context.raw >= 120 ? '#172537' : '#172537';
+        },
+        anchor: 'center',
+        align: 'center',
+        formatter: (value: number) => {
+          if (value >= 60) {
+            return `${value/60}h`;
+          }
+          const valueStr = value.toString();
+          const padding = ' '.repeat(Math.max(0, 3 - valueStr.length));
+          return `${padding}${value}\n min`;
+        }
+      }
+    },
+    {
+      data: [150, 150, 150, 150, 150, 150, 150],
+      backgroundColor: '#1D2F47',
+      borderRadius: 6,
+      borderSkipped: false,
+      barThickness: 35,
+      categoryPercentage: 0.8,
+      barPercentage: 0.9,
+      stack: 'stack1',
+      datalabels: {
+        display: false
+      }
     }
   ]
 };
@@ -204,6 +284,9 @@ const TypewriterText = ({ text }: { text: string }) => {
   
   useEffect(() => {
     let currentIndex = 0;
+    const totalDuration = 500; // 500ms = meio segundo
+    const intervalTime = totalDuration / text.length; // Calcula o intervalo baseado no tamanho do texto
+    
     const interval = setInterval(() => {
       if (currentIndex <= text.length) {
         setDisplayText(text.slice(0, currentIndex));
@@ -211,55 +294,182 @@ const TypewriterText = ({ text }: { text: string }) => {
       } else {
         clearInterval(interval);
       }
-    }, 50); // Adjust speed here (lower = faster)
+    }, intervalTime);
 
     return () => clearInterval(interval);
   }, [text]);
 
-  return <p className="mb-4">{displayText}</p>;
+  return <div className="mb-4" dangerouslySetInnerHTML={{ __html: displayText }} />;
 };
 
+const getWeekDateRange = () => {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - today.getDay() + 1);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  return `${monday.toLocaleDateString('pt-BR', { 
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })} a ${sunday.toLocaleDateString('pt-BR', { 
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })}`;
+};
+
+const getTotalStudyHours = (data: StudyData) => {
+  const totalMinutes = data.datasets[0].data.reduce((sum, minutes) => sum + minutes, 0);
+  return totalMinutes >= 60 
+    ? `${(totalMinutes/60).toFixed(1)}h` 
+    : `${totalMinutes}min`;
+};
+
+const formatTabLabel = (tab: TabOption) => {
+  const parts = tab.label.split(' ');
+  if (parts.length !== 2) {
+    console.warn(`Invalid tab label format: ${tab.label}`);
+    return tab.label;
+  }
+
+  const [number, ...rest] = parts;
+  return (
+    <span className="flex items-center gap-1">
+      {tab.isLocked && (
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="8" 
+          height="8" 
+          viewBox="0 0 8 8" 
+          fill="none"
+          aria-label="Trimestre bloqueado"
+          role="img"
+        >
+          <g opacity="0.4">
+            <path d="M2.00016 7.44446C1.81683 7.44446 1.65989 7.37918 1.52933 7.24862C1.39877 7.11807 1.3335 6.96112 1.3335 6.77779V3.44446C1.3335 3.26112 1.39877 3.10418 1.52933 2.97362C1.65989 2.84307 1.81683 2.77779 2.00016 2.77779H2.3335V2.11112C2.3335 1.65001 2.496 1.25696 2.821 0.931958C3.146 0.606958 3.53905 0.444458 4.00016 0.444458C4.46127 0.444458 4.85433 0.606958 5.17933 0.931958C5.50433 1.25696 5.66683 1.65001 5.66683 2.11112V2.77779H6.00016C6.1835 2.77779 6.34044 2.84307 6.471 2.97362C6.60155 3.10418 6.66683 3.26112 6.66683 3.44446V6.77779C6.66683 6.96112 6.60155 7.11807 6.471 7.24862C6.34044 7.37918 6.1835 7.44446 6.00016 7.44446H2.00016ZM4.00016 5.77779C4.1835 5.77779 4.34044 5.71251 4.471 5.58196C4.60155 5.4514 4.66683 5.29446 4.66683 5.11112C4.66683 4.92779 4.60155 4.77085 4.471 4.64029C4.34044 4.50974 4.1835 4.44446 4.00016 4.44446C3.81683 4.44446 3.65989 4.50974 3.52933 4.64029C3.39877 4.77085 3.3335 4.92779 3.3335 5.11112C3.3335 5.29446 3.39877 5.4514 3.52933 5.58196C3.65989 5.71251 3.81683 5.77779 4.00016 5.77779ZM3.00016 2.77779H5.00016V2.11112C5.00016 1.83335 4.90294 1.59724 4.7085 1.40279C4.51405 1.20835 4.27794 1.11112 4.00016 1.11112C3.72239 1.11112 3.48627 1.20835 3.29183 1.40279C3.09739 1.59724 3.00016 1.83335 3.00016 2.11112V2.77779Z" fill="white"/>
+          </g>
+        </svg>
+      )}
+      {number} {rest.join(' ')}
+    </span>
+  );
+};
+
+// Update interfaces to match new API structure
+interface InsightData {
+  general_insight: string;
+  performance_insight: string;
+  time_insight: string;
+  suggested_daily_time: number;
+  study_time?: {
+    monday: number;
+    tuesday: number;
+    wednesday: number;
+    thursday: number;
+    friday: number;
+    saturday: number;
+    sunday: number;
+  };
+  pd_suggested: {
+    title: string;
+    link: string;
+  }[];
+}
+
+// Add this helper function to convert time string to minutes
+const timeStringToMinutes = (timeStr: string): number => {
+  const hoursMatch = timeStr.match(/(\d+)h/);
+  const minutesMatch = timeStr.match(/(\d+)min/);
+  
+  const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+  const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+  
+  return hours * 60 + minutes;
+};
+
+const DEFAULT_INSIGHT_TEXT = "Olá, Cecília. Identifiquei alguns pontos de melhorias no seu cronograma de estudos baseados no seu desempenho até aqui.\n\nGostaria de saber como melhorar sua performance?";
+
 export default function Dashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(TRIMESTER_TABS[0].id);
-  const [insightText, setInsightText] = useState<string>('');
+  const [insightText, setInsightText] = useState<string>(DEFAULT_INSIGHT_TEXT);
   const [performanceData, setPerformanceData] = useState<PerformanceData>(trimesterPerformance);
   const [studyHoursData, setStudyHoursData] = useState<StudyData>(studyData);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [tabs, setTabs] = useState<TabOption[]>(TRIMESTER_TABS);
+  const [error, setError] = useState<string | null>(null);
+  const [suggestedDailyTime, setSuggestedDailyTime] = useState<string>('2h');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         
-        // Helper function to safely fetch and parse JSON
-        const fetchJSON = async (url: string) => {
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const response = await fetch('/completions', {
+          signal: AbortSignal.timeout(60000),
+          headers: {
+            'Content-Type': 'application/json',
           }
-          const text = await response.text();
-          try {
-            return JSON.parse(text);
-          } catch (e) {
-            console.error(`Invalid JSON from ${url}:`, text);
-            throw new Error('Invalid JSON response');
-          }
-        };
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erro ao carregar dados (${response.status})`);
+        }
+        
+        const data: InsightData = await response.json();
 
-        // Fetch all data with proper error handling
-        const [insightData, performanceData, studyData] = await Promise.all([
-          fetchJSON<InsightData>('/api/insights').catch(() => ({ text: 'Não foi possível carregar os insights.' })),
-          fetchJSON<PerformanceData>('/api/performance').catch(() => trimesterPerformance), // Fallback to default data
-          fetchJSON<StudyData>('/api/study-hours').catch(() => studyData) // Fallback to default data
-        ]);
+        if (!data || typeof data !== 'object') {
+          throw new Error('Formato de dados inválido');
+        }
 
-        setInsightText(isLoading.text);
-        setPerformanceData(performanceData);
-        setStudyHoursData(studyData);
+        if (data.suggested_daily_time) {
+          const hours = Math.floor(data.suggested_daily_time / 60);
+          const minutes = data.suggested_daily_time % 60;
+          setSuggestedDailyTime(minutes > 0 ? `${hours}h${minutes}min` : `${hours}h`);
+        }
+
+        // Update study hours data if available from API
+        if (data.study_time) {
+          const newStudyData = {
+            ...studyData,
+            datasets: [
+              {
+                ...studyData.datasets[0],
+                data: [
+                  data.study_time.monday,
+                  data.study_time.tuesday,
+                  data.study_time.wednesday,
+                  data.study_time.thursday,
+                  data.study_time.friday,
+                  data.study_time.saturday,
+                  data.study_time.sunday
+                ]
+              },
+              studyData.datasets[1] // Keep the background bars unchanged
+            ]
+          };
+          setStudyHoursData(newStudyData);
+        }
+
       } catch (error) {
         console.error('Error fetching data:', error);
-        // Set default values in case of error
-        setInsightText('Não foi possível carregar os dados. Por favor, tente novamente mais tarde.');
+        
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+          setError('O servidor demorou muito para responder. Por favor, tente novamente.');
+        } else if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          setError('Não foi possível conectar ao servidor. Verifique se o servidor está rodando em http://localhost:3005');
+        } else {
+          setError(
+            error instanceof Error 
+              ? error.message 
+              : 'Erro ao carregar dados. Por favor, tente novamente.'
+          );
+        }
       } finally {
         setIsLoading(false);
       }
@@ -267,6 +477,158 @@ export default function Dashboard() {
 
     fetchData();
   }, []);
+
+  // Function to update trimester locks based on completion
+  const updateTrimesterLocks = useCallback(() => {
+    setTabs(prevTabs => {
+      return prevTabs.map((tab, index) => {
+        if (index === 0) return { ...tab, isLocked: false }; // First trimester is always unlocked
+        
+        // Unlock next trimester if previous one is completed
+        const previousTab = prevTabs[index - 1];
+        return {
+          ...tab,
+          isLocked: previousTab.completion < 100
+        };
+      });
+    });
+  }, []);
+
+  // Use effect to update locks when completion changes
+  useEffect(() => {
+    updateTrimesterLocks();
+  }, [updateTrimesterLocks]);
+
+  // Handle insights generation
+  const handleGenerateInsights = async () => {
+    try {
+      setIsLoadingInsights(true);
+      setError(null);
+      
+      const response = await fetch('/completions', {
+        signal: AbortSignal.timeout(60000),
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar insights (${response.status})`);
+      }
+      
+      const data: InsightData = await response.json();
+
+      // Concatenate insights in the specified order with line breaks between them
+      let formattedText = '';
+      
+      if (data.general_insight) {
+        formattedText += data.general_insight + '\n\n';
+      }
+      
+      if (data.performance_insight) {
+        formattedText += data.performance_insight + '\n\n';
+      }
+      
+      if (data.time_insight) {
+        formattedText += data.time_insight + '\n\n';
+      }
+      
+      // Add PD suggestions at the end
+      if (data.pd_suggested && data.pd_suggested.length > 0) {
+        formattedText += 'Sugestões de PDs:\n\n';
+        data.pd_suggested.forEach(pd => {
+          formattedText += `<div class="flex items-center gap-2 p-2 bg-[#1D2F47] rounded-md my-2">
+<svg xmlns="http://www.w3.org/2000/svg" width="17" height="16" viewBox="0 0 17 16" fill="none">
+  <path d="M16.4118 8.01332L9.61529 1.21685C9.14587 0.7474 8.38372 0.7474 7.91429 1.21685L1.11778 8.01332C0.607121 8.5233 0.658816 9.36858 1.22257 9.81918C2.21875 10.6155 3.31482 11.2226 4.46119 11.6592C4.39203 11.3498 4.35011 11.0305 4.35011 10.7008C4.35011 8.2627 6.3264 6.28574 8.76515 6.28574C11.2039 6.28574 13.1802 8.26205 13.1802 10.7008C13.1802 11.0312 13.1382 11.3498 13.0691 11.6592C14.2148 11.2226 15.3108 10.6162 16.3077 9.81918C16.8714 9.36858 16.9232 8.5233 16.4125 8.01332H16.4118Z" fill="#C1DB25"/>
+  <path d="M4.46094 11.6591C4.89965 13.6347 6.65658 15.115 8.7649 15.115C10.8732 15.115 12.6302 13.6347 13.0688 11.6591C10.3011 12.7119 7.22944 12.7119 4.46164 11.6591H4.46094Z" fill="#C1DB25"/>
+  <path d="M14.9419 14.4382C15.5226 14.4382 15.9933 13.9674 15.9933 13.3868C15.9933 12.8062 15.5226 12.3354 14.9419 12.3354C14.3613 12.3354 13.8906 12.8062 13.8906 13.3868C13.8906 13.9674 14.3613 14.4382 14.9419 14.4382Z" fill="#C1DB25"/>
+</svg>
+            <a href="${pd.link}" target="_blank" rel="noopener noreferrer" class="text-white hover:text-blue-300 transition-colors">
+              ${pd.title}
+              <svg class="inline-block ml-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M7 17L17 7M17 7H8M17 7V16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>`;
+        });
+      }
+
+      setInsightText(formattedText);
+
+      // Scroll to bottom after content is updated
+      const insightsContainer = document.querySelector('.insights-text');
+      if (insightsContainer) {
+        setTimeout(() => {
+          insightsContainer.scrollTop = insightsContainer.scrollHeight;
+        }, 600); // Aguarda um pouco mais que a animação de digitação (500ms)
+      }
+
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+      setError(
+        error instanceof Error 
+          ? error.message 
+          : 'Erro ao gerar insights. Por favor, tente novamente.'
+      );
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+
+  // In the Dashboard component, update the Bar chart options
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        stacked: true,
+        grid: {
+          display: false,
+          drawTicks: false,
+        },
+        ticks: { 
+          display: false,
+        },
+        border: {
+          display: false
+        },
+        min: 0,
+        max: timeStringToMinutes(suggestedDailyTime), // Use the converted time here
+      },
+      x: {
+        stacked: true,
+        grid: { 
+          display: false,
+        },
+        ticks: { 
+          color: '#fff',
+          padding: 5,
+          font: {
+            size: 10,
+            md: 12
+          }
+        },
+        border: {
+          display: false
+        },
+        position: 'top'
+      }
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      datalabels: {
+        font: {
+          weight: 'bold'
+        }
+      }
+    }
+  };
+
+  const handleEditPlanning = () => {
+    router.push('/');
+  };
 
   return (
     <main className="dashboard-container min-h-screen bg-[#0D1621] p-4 md:p-8">
@@ -297,12 +659,13 @@ export default function Dashboard() {
           <Button 
             label="EDITAR PLANEJAMENTO" 
             variant="secondary"
-            size="md"
+            size="sm"
+            onClick={handleEditPlanning}
           />
         </div>
 
         <div className="dashboard-grid grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-          <div className="performance-study-card bg-[#172537] p-4 md:p-6 rounded-lg col-span-1 md:col-span-2 flex flex-col md:flex-row w-full">
+          <div className="performance-study-card bg-[#172537] border border-[#20344E] p-4 md:p-6 rounded-lg col-span-1 md:col-span-2 flex flex-col md:flex-row w-full">
             {/* Performance Section */}
             <div className="performance-section flex-1 md:pr-6 md:border-r border-[#1D2F47] mb-6 md:mb-0">
               <div className="performance-title flex items-center gap-2 mb-4">
@@ -320,18 +683,22 @@ export default function Dashboard() {
               </div>
               
               <div className="trimester-tabs relative flex justify-between mb-4 border-b border-gray-400">
-                {TRIMESTER_TABS.map((tab, i) => (
+                {tabs.map((tab, i) => (
                   <button
                     key={i}
                     className={`text-xs md:text-sm pb-2 relative ${
-                      activeTab === tab.id 
-                        ? 'text-[#0095D6]' 
-                        : 'text-gray-400'
+                      tab.isLocked 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : activeTab === tab.id 
+                          ? 'text-[#0095D6]' 
+                          : 'text-gray-400 hover:text-gray-300'
                     }`}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => !tab.isLocked && setActiveTab(tab.id)}
+                    disabled={tab.isLocked}
+                    aria-label={`${tab.label}${tab.isLocked ? ' (Bloqueado)' : ''}`}
                   >
-                    {tab.label}
-                    {activeTab === tab.id && (
+                    {formatTabLabel(tab)}
+                    {activeTab === tab.id && !tab.isLocked && (
                       <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#0095D6]" />
                     )}
                   </button>
@@ -363,110 +730,53 @@ export default function Dashboard() {
 
             {/* Study Hours Section */}
             <div className="study-hours-section flex-1 md:pl-6 pt-6 md:pt-0 border-t md:border-t-0 border-[#1D2F47]">
-              <div className="study-hours-title flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[#20344E] flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <mask id="mask0_116_974" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
-                      <rect width="24" height="24" fill="#D9D9D9"/>
-                    </mask>
-                    <g mask="url(#mask0_116_974)">
-                      <path d="M4 20C3.45 20 2.97917 19.8042 2.5875 19.4125C2.19583 19.0208 2 18.55 2 18V6C2 5.45 2.19583 4.97917 2.5875 4.5875C2.97917 4.19583 3.45 4 4 4H16C16.55 4 17.0208 4.19583 17.4125 4.5875C17.8042 4.97917 18 5.45 18 6V10.5L21.15 7.35C21.3167 7.18333 21.5 7.14167 21.7 7.225C21.9 7.30833 22 7.46667 22 7.7V16.3C22 16.5333 21.9 16.6917 21.7 16.775C21.5 16.8583 21.3167 16.8167 21.15 16.65L18 13.5V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H4Z" fill="white"/>
-                    </g>
-                  </svg>
+              <div className="study-hours-title flex flex-col gap-1 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-[#20344E] flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <mask id="mask0_116_974" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+                        <rect width="24" height="24" fill="#D9D9D9"/>
+                      </mask>
+                      <g mask="url(#mask0_116_974)">
+                        <path d="M4 20C3.45 20 2.97917 19.8042 2.5875 19.4125C2.19583 19.0208 2 18.55 2 18V6C2 5.45 2.19583 4.97917 2.5875 4.5875C2.97917 4.19583 3.45 4 4 4H16C16.55 4 17.0208 4.19583 17.4125 4.5875C17.8042 4.97917 18 5.45 18 6V10.5L21.15 7.35C21.3167 7.18333 21.5 7.14167 21.7 7.225C21.9 7.30833 22 7.46667 22 7.7V16.3C22 16.5333 21.9 16.6917 21.7 16.775C21.5 16.8583 21.3167 16.8167 21.15 16.65L18 13.5V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H4Z" fill="white"/>
+                      </g>
+                    </svg>
+                  </div>
+                  <h3 className="text-white">Horas de videoaulas assistidas</h3>
                 </div>
-                <h3 className="text-white">Horas de videoaulas assistidas</h3>
+                <span className="text-gray-400 text-sm ml-12">{getWeekDateRange()}</span>
               </div>
               
-              <div className="study-hours-chart w-full h-[200px] md:h-[250px]">
+              <div className="study-hours-chart w-full h-[200px] md:h-[335px]">
                 <Bar 
                   data={studyHoursData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        grid: {
-                          color: 'rgba(193, 219, 37, 0.4)',
-                          drawTicks: false,
-                          lineWidth: 0.3,
-                          borderDash: [2, 2]
-                        },
-                        ticks: { 
-                          display: false,
-                        },
-                        border: {
-                          display: false
-                        },
-                        min: 0,
-                        max: 150,
-                      },
-                      x: {
-                        grid: { 
-                          display: false,
-                        },
-                        ticks: { 
-                          color: '#fff',
-                          padding: 5,
-                          font: {
-                            size: 10,
-                            md: 12
-                          }
-                        },
-                        border: {
-                          display: false
-                        },
-                        position: 'top'
-                      }
-                    },
-                    plugins: {
-                      legend: {
-                        display: false
-                      },
-                      tooltip: {
-                        callbacks: {
-                          label: function(context) {
-                            const value = context.raw as number;
-                            if (value >= 60) {
-                              return `${value/60}h`;
-                            }
-                            return `${value}min`;
-                          }
-                        }
-                      }
-                    }
-                  }}
+                  options={chartOptions}
                 />
-              </div>
-
-              <div className="study-hours-legend flex gap-6 text-sm mt-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#C1DB25]"></div>
-                  <span className="text-white">Meta de estudo</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#4D5D71]"></div>
-                  <span className="text-white">Média semanal</span>
-                </div>
               </div>
 
               <div className="daily-study-card flex justify-between mt-4 bg-[#1D2F47] p-4 items-center">
                 <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-[#4D5D71] flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="25" viewBox="0 0 24 25" fill="none">
-                    <mask id="mask0_116_987" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="25">
-                      <rect y="0.5" width="24" height="24" fill="#D9D9D9"/>
-                    </mask>
-                    <g mask="url(#mask0_116_987)">
-                      <path d="M6 22.5C5.45 22.5 4.97917 22.3042 4.5875 21.9125C4.19583 21.5208 4 21.05 4 20.5V4.5C4 3.95 4.19583 3.47917 4.5875 3.0875C4.97917 2.69583 5.45 2.5 6 2.5H18C18.55 2.5 19.0208 2.69583 19.4125 3.0875C19.8042 3.47917 20 3.95 20 4.5V20.5C20 21.05 19.8042 21.5208 19.4125 21.9125C19.0208 22.3042 18.55 22.5 18 22.5H6ZM11 4.5V10.625C11 10.825 11.0792 10.9708 11.2375 11.0625C11.3958 11.1542 11.5667 11.15 11.75 11.05L12.975 10.325C13.1417 10.225 13.3125 10.175 13.4875 10.175C13.6625 10.175 13.8333 10.225 14 10.325L15.225 11.05C15.4083 11.15 15.5833 11.1542 15.75 11.0625C15.9167 10.9708 16 10.825 16 10.625V4.5H11Z" fill="white"/>
-                    </g>
-                  </svg>
-                </div>
+                  <div className="w-10 h-10 rounded-full bg-[#4D5D71] flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="25" viewBox="0 0 24 25" fill="none">
+                      <mask id="mask0_116_987" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="25">
+                        <rect y="0.5" width="24" height="24" fill="#D9D9D9"/>
+                      </mask>
+                      <g mask="url(#mask0_116_987)">
+                        <path d="M6 22.5C5.45 22.5 4.97917 22.3042 4.5875 21.9125C4.19583 21.5208 4 21.05 4 20.5V4.5C4 3.95 4.19583 3.47917 4.5875 3.0875C4.97917 2.69583 5.45 2.5 6 2.5H18C18.55 2.5 19.0208 2.69583 19.4125 3.0875C19.8042 3.47917 20 3.95 20 4.5V20.5C20 21.05 19.8042 21.5208 19.4125 21.9125C19.0208 22.3042 18.55 22.5 18 22.5H6ZM11 4.5V10.625C11 10.825 11.0792 10.9708 11.2375 11.0625C11.3958 11.1542 11.5667 11.15 11.75 11.05L12.975 10.325C13.1417 10.225 13.3125 10.175 13.4875 10.175C13.6625 10.175 13.8333 10.225 14 10.325L15.225 11.05C15.4083 11.15 15.5833 11.1542 15.75 11.0625C15.9167 10.9708 16 10.825 16 10.625V4.5H11Z" fill="white"/>
+                      </g>
+                    </svg>
+                  </div>
                   <div className="flex flex-col justify-between">
                     <span className="text-white">Estudo diário</span>
                     <span className="text-gray-400 text-sm">Sugestão</span>
-                   </div>
+                  </div>
                 </div>
-                <span className="text-white text-2xl font-bold">2h</span>
+                <div className="flex flex-col items-end">
+                  <span className="text-white text-2xl font-bold">{suggestedDailyTime}</span>
+                  <span className="text-gray-400 text-sm">
+                  Total: {getTotalStudyHours(studyHoursData)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -484,23 +794,26 @@ export default function Dashboard() {
             </div>
 
             <div className="insights-content text-white">
-              <div className='insights-text h-[300px] md:h-[400px]'>
-                {isLoading ? (
-                  <p>Carregando insights...</p>
+              <div className='insights-text h-[300px] md:h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'>
+                {isLoadingInsights ? (
+                  <p>Gerando insights...</p>
                 ) : (
                   <TypewriterText text={insightText} />
                 )}
               </div>
             </div>
             <Button 
-            label="Gerar insights" 
-            variant="primary"
-            size="md"
-            fullWidth={true}
-          />
+              className="mt-2"
+              label="Gerar insights" 
+              variant="primary"
+              size="md"
+              fullWidth={true}
+              onClick={handleGenerateInsights}
+              disabled={isLoadingInsights}
+            />
           </div>
         </div>
       </div>
     </main>
   );
-} 
+}
